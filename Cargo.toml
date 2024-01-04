@@ -6,3 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0.79"
+bdays = "0.1.3"
+chrono = "0.4.31"
+crossterm = "0.27.0"
+ratatui = {version = "0.25.0", features = ["widget-calendar"]}
+time = { version = "0.3.31"}
