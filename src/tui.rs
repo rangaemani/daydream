@@ -56,9 +56,17 @@ impl Tui {
         Ok(())
     }
 
-    // draws terminal interface -> renders widgets
-    pub fn draw(&mut self, app: &mut AppState) -> Result<()> {
-        self.terminal.draw(|frame| ui::render(app, frame))?;
+    // draws terminal interface -> renders calendar widgets
+    pub fn draw_calendar(&mut self, app: &mut AppState) -> Result<()> {
+        self.terminal
+            .draw(|frame| ui::render_journal_calendar(app, frame))?;
+        Ok(())
+    }
+
+    // draws terminal interface -> renders editor
+    pub fn draw_editor(&mut self, app: &mut AppState) -> Result<()> {
+        self.terminal
+            .draw(|frame| ui::render_journal_entry(app, frame))?;
         Ok(())
     }
 }

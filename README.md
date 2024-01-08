@@ -1,6 +1,6 @@
 # Daydream ☀️
 
-Daydream is a in-terminal powered by ratatui🐀designed to help you keep track of your thoughts.
+Daydream is an in-terminal journaling program powered by ratatui🐀 designed to help you keep track of your thoughts.
 
 ## Features
 - calendar based daily logging system

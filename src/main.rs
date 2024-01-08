@@ -3,12 +3,8 @@ use anyhow::Result;
 use app::AppState;
 use event::{Event, EventHandler};
 use ratatui::{backend::CrosstermBackend, Terminal};
-use std::collections::HashMap;
 use tui::Tui;
-use ui::render;
 // use update::update;
-
-use time::{Date, Duration, OffsetDateTime};
 
 // application
 pub mod app;
@@ -24,6 +20,9 @@ pub mod ui;
 
 // terminal user interfaces
 pub mod tui;
+
+// journal editor ui
+pub mod editor;
 
 // application logic loop
 pub mod update;
@@ -45,13 +44,21 @@ fn main() -> Result<()> {
             Event::Tick => {}
             Event::Key(key_event) => {
                 key_event.update(&mut app);
-                tui.draw(&mut app)?;
+                match app.mode {
+                    app::Mode::CALENDAR => tui.draw_calendar(&mut app)?,
+                    app::Mode::EDITOR => tui.draw_editor(&mut app)?,
+                    app::Mode::SORT => todo!(),
+                }
             }
             Event::Mouse(mouse_event) => {
                 mouse_event.update(&mut app);
-                tui.draw(&mut app)?;
+                match app.mode {
+                    app::Mode::CALENDAR => tui.draw_calendar(&mut app)?,
+                    app::Mode::EDITOR => tui.draw_editor(&mut app)?,
+                    app::Mode::SORT => todo!(),
+                }
             }
-            Event::Resize(_, _) => tui.draw(&mut app)?,
+            Event::Resize(_, _) => tui.draw_calendar(&mut app)?,
         };
     }
     // exit ui

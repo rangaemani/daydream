@@ -1,23 +1,17 @@
-use std::{error::Error, io, ops::Add, rc::Rc, str::FromStr};
-
 use crate::app::AppState;
-use bdays::HolidayCalendar;
-use chrono::{Datelike, NaiveDate};
-use crossterm::{
-    event::{self, Event, KeyCode},
-    execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-};
 use ratatui::{prelude::*, widgets::calendar::*};
-use time::{Date, Month, OffsetDateTime};
+use std::rc::Rc;
+use time::{Date, Month};
+
+//TODO - for selected date, show any journal entries tagged for that date. for journal thumbnail show date, entry title, and tags
 
 pub struct DatePosition {
     date: Date,
     position: (i16, i16),
 }
 
-pub fn draw(app: &mut AppState, f: &mut Frame) {
-    let app_area = f.size();
+pub fn draw_calendar(app: &mut AppState, frame: &mut Frame) {
+    let app_area = frame.size();
 
     let calarea = Rect {
         x: app_area.x
@@ -64,7 +58,7 @@ pub fn draw(app: &mut AppState, f: &mut Frame) {
             date: start,
             position: pos,
         }); // Store the date-position mapping
-        f.render_widget(cal, chunk);
+        frame.render_widget(cal, chunk);
         if start.month().next() == Month::January {
             start = start
                 .replace_day(1)
@@ -126,25 +120,26 @@ fn make_dates(current_year: i32, app: &mut AppState) -> CalendarEventStore {
 
     let mut list = CalendarEventStore::today(
         Style::default()
-            .add_modifier(Modifier::BOLD)
-            .add_modifier(Modifier::UNDERLINED)
             .add_modifier(Modifier::SLOW_BLINK)
-            .fg(Color::Black)
-            .bg(Color::Rgb(0, 255, 80)),
+            .fg(Color::Rgb(55, 55, 255))
+            .bg(Color::Rgb(255, 255, 160)),
     );
 
     // Weekend
-    let weekend_style = Style::default()
+    let _weekend_style = Style::default()
         .add_modifier(Modifier::ITALIC)
-        .fg(Color::Yellow)
-        .bg(Color::White);
+        .bg(Color::LightBlue);
 
     // Holidays
     let holiday_style = Style::default()
         .add_modifier(Modifier::UNDERLINED)
         .fg(Color::Yellow)
-        .bg(Color::White);
+        .bg(Color::Rgb(70, 100, 255));
 
+    // selected style
+    let selected_style = Style::default()
+        .add_modifier(Modifier::CROSSED_OUT)
+        .bg(Color::White);
     // new year's
     list.add(
         Date::from_calendar_date(current_year, Month::January, 1).unwrap(),
@@ -160,6 +155,11 @@ fn make_dates(current_year: i32, app: &mut AppState) -> CalendarEventStore {
         Date::from_calendar_date(current_year, Month::February, 2).unwrap(),
         holiday_style,
     );
+    // valentine's day
+    list.add(
+        Date::from_calendar_date(current_year, Month::February, 14).unwrap(),
+        holiday_style,
+    );
     // april fool's
     list.add(
         Date::from_calendar_date(current_year, Month::April, 1).unwrap(),
@@ -168,6 +168,16 @@ fn make_dates(current_year: i32, app: &mut AppState) -> CalendarEventStore {
     // earth day
     list.add(
         Date::from_calendar_date(current_year, Month::April, 22).unwrap(),
+        holiday_style,
+    );
+    // juneteenth
+    list.add(
+        Date::from_calendar_date(current_year, Month::June, 19).unwrap(),
+        holiday_style,
+    );
+    // independence day
+    list.add(
+        Date::from_calendar_date(current_year, Month::July, 4).unwrap(),
         holiday_style,
     );
     // christmas eve
@@ -211,12 +221,7 @@ fn make_dates(current_year: i32, app: &mut AppState) -> CalendarEventStore {
         season_style,
     );
     // currently selected day
-    list.add(
-        app.selected_date,
-        Style::default()
-            .add_modifier(Modifier::BOLD)
-            .bg(Color::Rgb(175, 250, 185)),
-    );
+    list.add(app.selected_date, selected_style);
 
     // // Use the custom holiday calendar to generate additional holidays
     // for month in 1..=12 {
@@ -252,29 +257,31 @@ mod cals {
     use super::*;
 
     pub(super) fn get_cal<'a, DS: DateStyler>(m: Month, y: i32, es: DS) -> Monthly<'a, DS> {
-        use Month::*;
+        // use Month::*;
         match m {
-            May => example1(m, y, es),
-            June => example2(m, y, es),
-            July => example3(m, y, es),
-            December => example3(m, y, es),
-            February => example4(m, y, es),
-            November => example5(m, y, es),
+            // May => example3(m, y, es),
+            // June => example3(m, y, es),
+            // July => example3(m, y, es),
+            // December => example3(m, y, es),
+            // February => example3(m, y, es),
+            // November => example3(m, y, es),
             _ => default(m, y, es),
         }
     }
 
     fn default<'a, DS: DateStyler>(m: Month, y: i32, es: DS) -> Monthly<'a, DS> {
-        let default_style = Style::default()
-            .add_modifier(Modifier::BOLD)
-            .bg(Color::Rgb(50, 50, 50));
+        let header_style = Style::default().fg(Color::Green);
+
+        let default_style = Style::default().fg(Color::White).bg(Color::LightBlue);
 
         Monthly::new(Date::from_calendar_date(y, m, 1).unwrap(), es)
-            .show_month_header(Style::default())
+            .show_surrounding(Style::default().add_modifier(Modifier::DIM))
+            .show_weekdays_header(header_style)
             .default_style(default_style)
+            .show_month_header(Style::default())
     }
 
-    fn example1<'a, DS: DateStyler>(m: Month, y: i32, es: DS) -> Monthly<'a, DS> {
+    fn _style1<'a, DS: DateStyler>(m: Month, y: i32, es: DS) -> Monthly<'a, DS> {
         let default_style = Style::default()
             .add_modifier(Modifier::BOLD)
             .bg(Color::Rgb(50, 50, 50));
@@ -285,7 +292,7 @@ mod cals {
             .show_month_header(Style::default())
     }
 
-    fn example2<'a, DS: DateStyler>(m: Month, y: i32, es: DS) -> Monthly<'a, DS> {
+    fn _style2<'a, DS: DateStyler>(m: Month, y: i32, es: DS) -> Monthly<'a, DS> {
         let header_style = Style::default()
             .add_modifier(Modifier::BOLD)
             .add_modifier(Modifier::DIM)
@@ -301,23 +308,17 @@ mod cals {
             .show_month_header(Style::default())
     }
 
-    fn example3<'a, DS: DateStyler>(m: Month, y: i32, es: DS) -> Monthly<'a, DS> {
-        let header_style = Style::default()
-            .add_modifier(Modifier::BOLD)
-            .fg(Color::Green);
-
+    fn _style3<'a, DS: DateStyler>(m: Month, y: i32, es: DS) -> Monthly<'a, DS> {
         let default_style = Style::default()
             .add_modifier(Modifier::BOLD)
             .bg(Color::Rgb(50, 50, 50));
 
         Monthly::new(Date::from_calendar_date(y, m, 1).unwrap(), es)
-            .show_surrounding(Style::default().add_modifier(Modifier::DIM))
-            .show_weekdays_header(header_style)
-            .default_style(default_style)
             .show_month_header(Style::default())
+            .default_style(default_style)
     }
 
-    fn example4<'a, DS: DateStyler>(m: Month, y: i32, es: DS) -> Monthly<'a, DS> {
+    fn _style4<'a, DS: DateStyler>(m: Month, y: i32, es: DS) -> Monthly<'a, DS> {
         let header_style = Style::default()
             .add_modifier(Modifier::BOLD)
             .fg(Color::Green);
@@ -331,7 +332,7 @@ mod cals {
             .default_style(default_style)
     }
 
-    fn example5<'a, DS: DateStyler>(m: Month, y: i32, es: DS) -> Monthly<'a, DS> {
+    fn _style5<'a, DS: DateStyler>(m: Month, y: i32, es: DS) -> Monthly<'a, DS> {
         let header_style = Style::default()
             .add_modifier(Modifier::BOLD)
             .fg(Color::Green);

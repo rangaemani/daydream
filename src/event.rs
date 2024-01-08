@@ -1,7 +1,7 @@
 use anyhow::Result;
 use crossterm::event::{self, Event as CrosstermEvent, KeyEvent, MouseEvent};
 use std::{
-    sync::mpsc::{self, SendError},
+    sync::mpsc,
     thread,
     time::{Duration, Instant},
 };
@@ -29,6 +29,7 @@ pub struct EventHandler {
     handler: thread::JoinHandle<()>,
 }
 
+// initiates generic event polling. basic sifting for event type
 impl EventHandler {
     /// constructs a new EventHandler instance
     pub fn new(tick_rate: u64) -> Self {
