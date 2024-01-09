@@ -13,7 +13,7 @@ pub fn render_journal_entry(app: &mut AppState, frame: &mut Frame) {
     frame.render_widget(
         Paragraph::new(format!(
             "
-                Write/Edit an entry. Save and Exit with `Ctrl-S`. To Exit without Saving use `Ctrl-C`
+                Write/Edit an entry ©️~〆(´Д｀ ). Save and Exit with `Ctrl-S`. To Exit without Saving use `Ctrl-C`
             "
         ))
         .block(

@@ -34,7 +34,7 @@ fn main() -> Result<()> {
     // initialize terminal user interface
     let backend = CrosstermBackend::new(std::io::stderr());
     let terminal = Terminal::new(backend)?;
-    let events = EventHandler::new(15);
+    let events = EventHandler::new(32);
     let mut tui = Tui::new(terminal, events);
     tui.configure()?;
 
@@ -43,11 +43,16 @@ fn main() -> Result<()> {
         match tui.events.next()? {
             Event::Tick => {}
             Event::Key(key_event) => {
-                key_event.update(&mut app);
                 match app.mode {
-                    app::Mode::CALENDAR => tui.draw_calendar(&mut app)?,
-                    app::Mode::EDITOR => tui.draw_editor(&mut app)?,
-                    app::Mode::SORT => todo!(),
+                    app::Mode::CALENDAR => {
+                        key_event.update(&mut app);
+                        tui.draw_calendar(&mut app)?;
+                    } //🌕
+                    app::Mode::EDITOR => {
+                        key_event.update(&mut app);
+                        tui.draw_editor(&mut app)?;
+                    } //🌗
+                    app::Mode::SORT => todo!(), //🌑
                 }
             }
             Event::Mouse(mouse_event) => {

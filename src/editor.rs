@@ -1,14 +1,12 @@
-use crate::app::{self, AppState};
-use kiro_editor::Editor;
-use ratatui::prelude::*;
-use ratatui::{
-    prelude::{Alignment, Frame},
-    style::{Color, Style},
-    widgets::{Block, BorderType, Borders, Paragraph},
-};
-use std::fs::File;
-use std::io;
-use std::rc::Rc;
+use crate::app::AppState;
+use crossterm::event::{Event, KeyCode};
+use ratatui::layout::Rect;
+use ratatui::prelude::Frame;
+use std::fs::*;
+use std::io::{self, BufRead};
+use std::io::{BufReader, Write};
+use std::path::Path;
+use tui_textarea::TextArea;
 
 // TODO implement editor logic for creating/reading/writing to/tagging journal entries
 // features:
@@ -20,50 +18,100 @@ use std::rc::Rc;
 // - arrow key directional navigation
 // - `Ctrl-S` save and quit
 
-pub fn save_file(app: &mut AppState, file: File) {
-    unimplemented!()
-}
+// pub fn save_file(app: &mut AppState, file: File) {
+//     unimplemented!()
+// }
 
 pub fn draw_editor(app: &mut AppState, frame: &mut Frame) {
-    let app_area = frame.size();
-
     let editor_area = Rect {
-        x: app_area.x
-            + if app_area.height / 9 == 0 {
+        x: frame.size().x
+            + if frame.size().height / 9 == 0 {
                 1
             } else {
-                app_area.height / 9
+                frame.size().height / 9
             },
-        y: app_area.y
-            + if app_area.height / 7 == 0 {
+        y: frame.size().y
+            + if frame.size().height / 7 == 0 {
                 1
             } else {
-                app_area.height / 7
+                frame.size().height / 7
             },
-        height: if app_area.height > 1 {
-            app_area.height - 1
+        height: if frame.size().height > 1 {
+            frame.size().height - 1
         } else {
             1
         },
-        width: if app_area.width > 1 {
-            app_area.width - 1
+        width: if frame.size().width > 1 {
+            frame.size().width - 1
         } else {
             1
         },
     };
+    if !app.initialized {
+        initialize_editor(app, frame, editor_area);
+    } else {
+        frame.render_widget(app.editor.widget(), editor_area);
+    }
 
-    let mut editor = Editor::new(app_area.height, app_area.width);
-    editor.insert_str("Sample Journal Text");
-    editor.run();
-
+    // let _current_entry_file = match create_entry_file(app) {
+    //     Some(file) => initialize_editor(app, frame),
+    //     None => return,
+    // };
     todo!()
 }
 
-fn create_file(app: &mut AppState) {
-    //     let dir = Path::new("/entries/");
-    //     let entries = find_entry(dir, date);
-    // for entry in entries {
-    //    println!("{}", entry);
-    // }
-    //     if(format!("{:?}.md", app.selected_date)){}
+pub fn update_editor(app: &mut AppState, input_key: KeyCode) {
+    app.editor.input(Event::Key(input_key.into()));
+}
+
+// runs the first time the editor is opened, populates editor with file contents
+// @params AppState, Frame // to access date, rendering frame
+// @return void
+pub fn initialize_editor<'a>(app: &'a mut AppState, frame: &mut Frame, editor_area: Rect) {
+    app.initialized();
+
+    let file = match create_entry_file(app) {
+        Some(file) => file,
+        None => {
+            eprintln!("Failed to create or open file");
+            return;
+        }
+    };
+    let reader = BufReader::new(file);
+    app.editor = TextArea::new(
+        reader
+            .lines()
+            .collect::<Result<Vec<_>, io::Error>>()
+            .unwrap(),
+    );
+    let widget = app.editor.widget();
+    frame.render_widget(widget, editor_area);
+}
+// creates file for selected date or opens one if it already exists
+// @params AppState // to access date
+// @return Option<File>
+fn create_entry_file<'a>(app: &mut AppState) -> Option<std::fs::File> {
+    let path = format!("/entries/{}_entry.md", app.selected_date);
+    if Path::new(&path).exists() {
+        let file = std::fs::OpenOptions::new()
+            .create(false)
+            .read(true)
+            .write(true)
+            .truncate(true)
+            .open(path)
+            .ok()?;
+        return Some(file);
+    } else {
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(path)
+            .ok()?;
+
+        file.write_all(format!("# Daily Entry - 『{}』\n", app.selected_date).as_bytes())
+            .ok()?;
+        file.flush().ok()?;
+        return Some(file);
+    }
 }

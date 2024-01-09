@@ -1,10 +1,9 @@
 use crate::{
     app::{AppState, Mode},
     calendar::map_to_date,
+    editor::update_editor,
 };
-use crossterm::event::{
-    KeyCode, KeyEvent, KeyModifiers, ModifierKeyCode, MouseButton, MouseEvent, MouseEventKind,
-};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use time::Date;
 
 pub trait UpdateEvent {
@@ -31,6 +30,7 @@ impl UpdateEvent for KeyEvent {
                     }
                     KeyCode::Enter => {
                         app.mode = Mode::EDITOR;
+                        // initialize_editor(app);
                     }
                     _ => {}
                 };
@@ -48,16 +48,36 @@ impl UpdateEvent for KeyEvent {
                     }
                 }
                 KeyCode::Left => {
-                    unimplemented!()
+                    let editor_input = KeyCode::Left;
+                    update_editor(app, editor_input);
                 }
                 KeyCode::Right => {
-                    unimplemented!()
+                    let editor_input = KeyCode::Right;
+                    update_editor(app, editor_input);
                 }
                 KeyCode::Up => {
-                    unimplemented!()
+                    let editor_input = KeyCode::Up;
+                    update_editor(app, editor_input);
                 }
                 KeyCode::Down => {
-                    unimplemented!()
+                    let editor_input = KeyCode::Down;
+                    update_editor(app, editor_input);
+                }
+                KeyCode::Char(c) => {
+                    let editor_input = KeyCode::Char(c);
+                    update_editor(app, editor_input);
+                }
+                KeyCode::Delete | KeyCode::Backspace => {
+                    let editor_input = KeyCode::Backspace;
+                    update_editor(app, editor_input);
+                }
+                KeyCode::Home => {
+                    let editor_input = KeyCode::Home;
+                    update_editor(app, editor_input);
+                }
+                KeyCode::End => {
+                    let editor_input = KeyCode::End;
+                    update_editor(app, editor_input);
                 }
                 _ => unimplemented!(),
             },

@@ -1,11 +1,14 @@
 use crate::calendar::DatePosition;
 use time::{Date, Month, OffsetDateTime};
+use tui_textarea::TextArea;
 // App state
-pub struct AppState {
+pub struct AppState<'a> {
     pub selected_date: Date,
     pub quit_flag: bool,
+    pub initialized: bool,
     pub date_pos_map: Vec<DatePosition>,
     pub mode: Mode,
+    pub editor: TextArea<'a>,
 }
 #[derive(Clone, Copy)]
 pub enum Mode {
@@ -14,7 +17,7 @@ pub enum Mode {
     SORT,
 }
 
-impl AppState {
+impl AppState<'_> {
     pub fn new() -> Self {
         AppState {
             selected_date: {
@@ -27,8 +30,10 @@ impl AppState {
                     .unwrap()
             },
             quit_flag: false,
+            initialized: false,
             date_pos_map: Vec::new(),
             mode: Mode::CALENDAR,
+            editor: TextArea::default(),
         }
     }
     // handles terminal tick events
@@ -36,6 +41,10 @@ impl AppState {
 
     pub fn save(&mut self) {
         todo!("editor save button")
+    }
+
+    pub fn initialized(&mut self) {
+        self.initialized = true;
     }
 
     pub fn quit(&mut self) {
