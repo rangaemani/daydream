@@ -4,7 +4,7 @@ use ratatui::prelude::Frame;
 use ratatui::style::{Color, Style};
 use ratatui::widgets::{Block, BorderType, Borders};
 use std::fs::{self, File, OpenOptions};
-use std::io::{self, BufRead, ErrorKind, Read, Write};
+use std::io::{self, BufRead, ErrorKind, Write};
 use std::str::FromStr;
 use tui_textarea::{Input, TextArea};
 
