@@ -1,1 +1,0 @@
-# Daily Entry - [sample]

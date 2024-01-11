@@ -1,64 +1,78 @@
 use crate::app::AppState;
-use ratatui::{prelude::*, widgets::calendar::*};
-use std::rc::Rc;
-use time::{Date, Month};
+use core::fmt;
+use ratatui::{
+    prelude::*,
+    widgets::{calendar::*, Block, BorderType, Borders},
+};
+use std::{collections::HashMap, rc::Rc};
+use time::{Date, Month, OffsetDateTime};
 
-//TODO - for selected date, show any journal entries tagged for that date. for journal thumbnail show date, entry title, and tags
-
-pub struct DatePosition {
-    date: Date,
-    position: (i16, i16),
+/// Holds information about calendar events and holidays.
+#[derive(Clone, PartialEq)]
+pub struct CalendarInfo {
+    /// Stores calendar events.
+    pub events: CalendarEventStore,
+    /// Maps dates to their holiday names.
+    pub holidays: HashMap<Date, String>,
 }
 
+impl fmt::Display for CalendarInfo {
+    /// Formats the calendar info as a string.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Events: {:?} Holidays: {:?}", self.events, self.holidays)
+    }
+}
+
+/// Draws the calendar in the given frame using the application state.
 pub fn draw_calendar(app: &mut AppState, frame: &mut Frame) {
-    let app_area = frame.size();
+    let frame_size = frame.size();
+
+    let constraints = vec![Constraint::Percentage(15), Constraint::Percentage(85)];
+
+    let layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(constraints)
+        .split(frame_size);
+
+    let calendar_area = layout[1];
 
     let calarea = Rect {
-        x: app_area.x
-            + if app_area.height / 9 == 0 {
-                1
-            } else {
-                app_area.height / 9
-            },
-        y: app_area.y
-            + if app_area.height / 7 == 0 {
-                1
-            } else {
-                app_area.height / 7
-            },
-        height: if app_area.height > 1 {
-            app_area.height - 1
-        } else {
-            1
-        },
-        width: if app_area.width > 1 {
-            app_area.width - 1
-        } else {
-            1
-        },
+        x: calendar_area.x,
+        y: calendar_area.y,
+        width: calendar_area.width,
+        height: calendar_area.height,
     };
 
     let mut start = app.selected_date;
 
-    let list = make_dates(start.year(), app);
+    let mut holidays: HashMap<Date, String> = HashMap::new();
+    let holiday_info = make_dates(start.year(), app, &mut holidays);
+    app.holiday_info = Some(holiday_info.clone());
 
-    let mut date_pos_map: Vec<DatePosition> = Vec::new();
-
-    for (i, chunk) in split_rows(&calarea)
+    for (_i, chunk) in split_rows(&calarea)
         .iter()
         .flat_map(|row| split_cols(row).to_vec())
         .enumerate()
     {
-        let cal = cals::get_cal(start.month(), start.year(), &list);
-        let pos = (
-            (i % calarea.x as usize) as i16,
-            (i / calarea.y as usize) as i16,
-        ); // Calculate the position
-        date_pos_map.push(DatePosition {
-            date: start,
-            position: pos,
-        }); // Store the date-position mapping
-        frame.render_widget(cal, chunk);
+        let cal = cals::get_cal(start.month(), start.year(), &holiday_info.events);
+
+        let center_x = chunk.x;
+        let center_y = chunk.y;
+        let centered_chunk = Rect {
+            x: center_x,
+            y: center_y,
+            width: chunk.width,
+            height: chunk.height,
+        };
+
+        frame.render_widget(
+            cal.block(
+                Block::default()
+                    .borders(Borders::all())
+                    .border_type(BorderType::Rounded),
+            ),
+            centered_chunk,
+        );
         if start.month().next() == Month::January {
             start = start
                 .replace_day(1)
@@ -75,19 +89,9 @@ pub fn draw_calendar(app: &mut AppState, frame: &mut Frame) {
                 .unwrap();
         }
     }
-    app.date_pos_map = date_pos_map;
 }
 
-pub fn map_to_date(app: &AppState, x: i16, y: i16) -> Option<Date> {
-    app.date_pos_map.iter().find_map(|date_pos| {
-        if date_pos.position.0 - x < 3 && date_pos.position.1 - y < 3 {
-            Some(date_pos.date)
-        } else {
-            None
-        }
-    })
-}
-
+/// Splits the given area into equal horizontal rows.
 fn split_rows(area: &Rect) -> Rc<[Rect]> {
     let list_layout = Layout::default()
         .direction(Direction::Vertical)
@@ -101,6 +105,7 @@ fn split_rows(area: &Rect) -> Rc<[Rect]> {
     list_layout.split(*area)
 }
 
+/// Splits the given area into equal vertical columns.
 fn split_cols(area: &Rect) -> Rc<[Rect]> {
     let list_layout = Layout::default()
         .direction(Direction::Horizontal)
@@ -115,234 +120,208 @@ fn split_cols(area: &Rect) -> Rc<[Rect]> {
     list_layout.split(*area)
 }
 
-fn make_dates(current_year: i32, app: &mut AppState) -> CalendarEventStore {
-    // let cal = bdays::calendars::us::USSettlement;
+/// Populates calendar info with holidays and styles for a given year.
+fn make_dates(
+    current_year: i32,
+    app: &mut AppState,
+    holidays: &mut HashMap<Date, String>,
+) -> CalendarInfo {
+    let mut list = match OffsetDateTime::now_local() {
+        Ok(_datetime) => CalendarEventStore::today(
+            Style::default()
+                .add_modifier(Modifier::SLOW_BLINK)
+                .fg(Color::Rgb(55, 55, 255))
+                .bg(Color::Rgb(255, 255, 160)),
+        ),
+        Err(e) => {
+            eprintln!("Failed to get local date time: {}", e);
+            CalendarEventStore::today(
+                Style::default()
+                    .add_modifier(Modifier::SLOW_BLINK)
+                    .fg(Color::Rgb(55, 55, 255))
+                    .bg(Color::Rgb(255, 255, 160)),
+            )
+        }
+    };
 
-    let mut list = CalendarEventStore::today(
-        Style::default()
-            .add_modifier(Modifier::SLOW_BLINK)
-            .fg(Color::Rgb(55, 55, 255))
-            .bg(Color::Rgb(255, 255, 160)),
-    );
+    let mut add_holiday = |date: Date,
+                           name: &str,
+                           style: Style,
+                           festive_touch: &str,
+                           holidays: &mut HashMap<Date, String>| {
+        list.add(date, style);
+        holidays.insert(date, format!("{} {}", name, festive_touch));
+    };
 
-    // Weekend
-    let _weekend_style = Style::default()
-        .add_modifier(Modifier::ITALIC)
-        .bg(Color::LightBlue);
-
-    // Holidays
     let holiday_style = Style::default()
         .add_modifier(Modifier::UNDERLINED)
         .fg(Color::Yellow)
         .bg(Color::Rgb(70, 100, 255));
 
-    // selected style
     let selected_style = Style::default()
         .add_modifier(Modifier::CROSSED_OUT)
         .bg(Color::White);
-    // new year's
-    list.add(
+
+    add_holiday(
         Date::from_calendar_date(current_year, Month::January, 1).unwrap(),
+        "New Year's Day",
         holiday_style,
-    );
-    // next new_year's day
-    list.add(
-        Date::from_calendar_date(current_year + 1, Month::January, 1).unwrap(),
-        holiday_style,
-    );
-    // groundhog day
-    list.add(
-        Date::from_calendar_date(current_year, Month::February, 2).unwrap(),
-        holiday_style,
-    );
-    // valentine's day
-    list.add(
-        Date::from_calendar_date(current_year, Month::February, 14).unwrap(),
-        holiday_style,
-    );
-    // april fool's
-    list.add(
-        Date::from_calendar_date(current_year, Month::April, 1).unwrap(),
-        holiday_style,
-    );
-    // earth day
-    list.add(
-        Date::from_calendar_date(current_year, Month::April, 22).unwrap(),
-        holiday_style,
-    );
-    // juneteenth
-    list.add(
-        Date::from_calendar_date(current_year, Month::June, 19).unwrap(),
-        holiday_style,
-    );
-    // independence day
-    list.add(
-        Date::from_calendar_date(current_year, Month::July, 4).unwrap(),
-        holiday_style,
-    );
-    // christmas eve
-    list.add(
-        Date::from_calendar_date(current_year, Month::December, 24).unwrap(),
-        holiday_style,
-    );
-    // christmas day
-    list.add(
-        Date::from_calendar_date(current_year, Month::December, 25).unwrap(),
-        holiday_style,
-    );
-    // new year's eve
-    list.add(
-        Date::from_calendar_date(current_year, Month::December, 31).unwrap(),
-        holiday_style,
+        "\u{1F389}", // Party Popper
+        holidays,
     );
 
-    // seasons
+    add_holiday(
+        Date::from_calendar_date(current_year, Month::February, 2).unwrap(),
+        "Groundhog Day",
+        holiday_style,
+        "🦫", // Panda Face
+        holidays,
+    );
+
+    add_holiday(
+        Date::from_calendar_date(current_year, Month::February, 14).unwrap(),
+        "Valentine's Day",
+        holiday_style,
+        "\u{1F496}", // Heart with Arrow
+        holidays,
+    );
+
+    add_holiday(
+        Date::from_calendar_date(current_year, Month::April, 1).unwrap(),
+        "April Fool's Day",
+        holiday_style,
+        "🃏", // Laughing Face with Sweat
+        holidays,
+    );
+
+    add_holiday(
+        Date::from_calendar_date(current_year, Month::April, 22).unwrap(),
+        "Earth Day",
+        holiday_style,
+        "🌏", //
+        holidays,
+    );
+
+    add_holiday(
+        Date::from_calendar_date(current_year, Month::June, 19).unwrap(),
+        "Juneteenth",
+        holiday_style,
+        "🎆", //
+        holidays,
+    );
+
+    add_holiday(
+        Date::from_calendar_date(current_year, Month::July, 4).unwrap(),
+        "Independence Day",
+        holiday_style,
+        "🕌", // United States Flag
+        holidays,
+    );
+
+    add_holiday(
+        Date::from_calendar_date(current_year, Month::December, 24).unwrap(),
+        "Christmas Eve",
+        holiday_style,
+        "\u{1F384}", // Christmas Tree
+        holidays,
+    );
+
+    add_holiday(
+        Date::from_calendar_date(current_year, Month::December, 25).unwrap(),
+        "Christmas Day",
+        holiday_style,
+        "\u{1F384}", // Christmas Tree
+        holidays,
+    );
+
+    add_holiday(
+        Date::from_calendar_date(current_year, Month::December, 31).unwrap(),
+        "New Year's Eve",
+        holiday_style,
+        "\u{1F55B}", // Celebration
+        holidays,
+    );
+
     let season_style = Style::default()
         .fg(Color::Red)
         .bg(Color::LightYellow)
         .add_modifier(Modifier::BOLD);
-    // spring equinox
-    list.add(
+
+    add_holiday(
         Date::from_calendar_date(current_year, Month::March, 22).unwrap(),
+        "Spring Equinox",
         season_style,
+        "\u{1F331}", // Seedling
+        holidays,
     );
-    // summer solstice
-    list.add(
+
+    add_holiday(
         Date::from_calendar_date(current_year, Month::June, 21).unwrap(),
+        "Summer Solstice",
         season_style,
+        "\u{2600}", // Sun
+        holidays,
     );
-    // fall equinox
-    list.add(
+
+    add_holiday(
         Date::from_calendar_date(current_year, Month::September, 22).unwrap(),
+        "Fall Equinox",
         season_style,
+        "\u{1F342}", // Maple Leaf
+        holidays,
     );
-    list.add(
+
+    add_holiday(
         Date::from_calendar_date(current_year, Month::December, 21).unwrap(),
+        "Winter Solstice",
         season_style,
+        "\u{26C4}", // Snowman
+        holidays,
     );
-    // currently selected day
-    list.add(app.selected_date, selected_style);
 
-    // // Use the custom holiday calendar to generate additional holidays
-    // for month in 1..=12 {
-    //     for day in 1..=31 {
-    //         let date = NaiveDate::from_ymd_opt(current_year, month, day).unwrap();
-    //         let days_since_ce = date.num_days_from_ce();
-    //         let year = ((days_since_ce + 365) / 365) + 1970;
-    //         let month = ((days_since_ce % 365) / 30) + 1;
-    //         let day = (days_since_ce % 30) + 1;
-    //         let candidate_date = Date::from_calendar_date(
-    //             OffsetDateTime::UNIX_EPOCH.to_calendar_date().0.add(year),
-    //             OffsetDateTime::UNIX_EPOCH
-    //                 .to_calendar_date()
-    //                 .1
-    //                 .nth_next(month as u8),
-    //             OffsetDateTime::UNIX_EPOCH
-    //                 .to_calendar_date()
-    //                 .2
-    //                 .add(day as u8),
-    //         );
-    //         if bdays::is_weekend(date) {
-    //             list.add(dbg!(candidate_date.unwrap()), weekend_style);
-    //         } else if cal.is_holiday(date) {
-    //             list.add(candidate_date.unwrap(), holiday_style);
-    //         }
-    //     }
-    // }
+    let reference_holidays: HashMap<Date, String> = holidays.clone();
 
-    list
+    if let Some(holiday_name) = reference_holidays.get(&app.selected_date) {
+        add_holiday(
+            app.selected_date,
+            holiday_name,
+            selected_style,
+            "",
+            holidays,
+        );
+    } else {
+        add_holiday(
+            app.selected_date,
+            "Selected Day",
+            selected_style,
+            "",
+            holidays,
+        );
+    }
+
+    CalendarInfo {
+        events: list,
+        holidays: holidays.clone(),
+    }
 }
 
 mod cals {
     use super::*;
 
+    /// Fetches the calendar for a given month and year.
     pub(super) fn get_cal<'a, DS: DateStyler>(m: Month, y: i32, es: DS) -> Monthly<'a, DS> {
-        // use Month::*;
-        match m {
-            // May => example3(m, y, es),
-            // June => example3(m, y, es),
-            // July => example3(m, y, es),
-            // December => example3(m, y, es),
-            // February => example3(m, y, es),
-            // November => example3(m, y, es),
-            _ => default(m, y, es),
-        }
+        default(m, y, es)
     }
 
+    /// Creates a default style calendar for a month and year with custom styles.
     fn default<'a, DS: DateStyler>(m: Month, y: i32, es: DS) -> Monthly<'a, DS> {
         let header_style = Style::default().fg(Color::Green);
-
-        let default_style = Style::default().fg(Color::White).bg(Color::LightBlue);
+        let default_style = Style::default().fg(Color::White).bg(Color::DarkGray);
 
         Monthly::new(Date::from_calendar_date(y, m, 1).unwrap(), es)
             .show_surrounding(Style::default().add_modifier(Modifier::DIM))
             .show_weekdays_header(header_style)
             .default_style(default_style)
             .show_month_header(Style::default())
-    }
-
-    fn _style1<'a, DS: DateStyler>(m: Month, y: i32, es: DS) -> Monthly<'a, DS> {
-        let default_style = Style::default()
-            .add_modifier(Modifier::BOLD)
-            .bg(Color::Rgb(50, 50, 50));
-
-        Monthly::new(Date::from_calendar_date(y, m, 1).unwrap(), es)
-            .show_surrounding(default_style)
-            .default_style(default_style)
-            .show_month_header(Style::default())
-    }
-
-    fn _style2<'a, DS: DateStyler>(m: Month, y: i32, es: DS) -> Monthly<'a, DS> {
-        let header_style = Style::default()
-            .add_modifier(Modifier::BOLD)
-            .add_modifier(Modifier::DIM)
-            .fg(Color::LightYellow);
-
-        let default_style = Style::default()
-            .add_modifier(Modifier::BOLD)
-            .bg(Color::Rgb(50, 50, 50));
-
-        Monthly::new(Date::from_calendar_date(y, m, 1).unwrap(), es)
-            .show_weekdays_header(header_style)
-            .default_style(default_style)
-            .show_month_header(Style::default())
-    }
-
-    fn _style3<'a, DS: DateStyler>(m: Month, y: i32, es: DS) -> Monthly<'a, DS> {
-        let default_style = Style::default()
-            .add_modifier(Modifier::BOLD)
-            .bg(Color::Rgb(50, 50, 50));
-
-        Monthly::new(Date::from_calendar_date(y, m, 1).unwrap(), es)
-            .show_month_header(Style::default())
-            .default_style(default_style)
-    }
-
-    fn _style4<'a, DS: DateStyler>(m: Month, y: i32, es: DS) -> Monthly<'a, DS> {
-        let header_style = Style::default()
-            .add_modifier(Modifier::BOLD)
-            .fg(Color::Green);
-
-        let default_style = Style::default()
-            .add_modifier(Modifier::BOLD)
-            .bg(Color::Rgb(50, 50, 50));
-
-        Monthly::new(Date::from_calendar_date(y, m, 1).unwrap(), es)
-            .show_weekdays_header(header_style)
-            .default_style(default_style)
-    }
-
-    fn _style5<'a, DS: DateStyler>(m: Month, y: i32, es: DS) -> Monthly<'a, DS> {
-        let header_style = Style::default()
-            .add_modifier(Modifier::BOLD)
-            .fg(Color::Green);
-
-        let default_style = Style::default()
-            .add_modifier(Modifier::BOLD)
-            .bg(Color::Rgb(50, 50, 50));
-
-        Monthly::new(Date::from_calendar_date(y, m, 1).unwrap(), es)
-            .show_month_header(header_style)
-            .default_style(default_style)
     }
 }

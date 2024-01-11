@@ -1,4 +1,3 @@
-use anyhow::Result;
 use crossterm::event::{self, Event as CrosstermEvent, KeyEvent, MouseEvent};
 use std::{
     sync::mpsc,
@@ -75,7 +74,7 @@ impl EventHandler {
     }
     // receive next event from handler thread
     // will always block current thread if there is no data available but datastream is still functioning
-    pub fn next(&self) -> Result<Event> {
+    pub fn next(&self) -> Result<Event, Box<dyn std::error::Error>> {
         Ok(self.receiver.recv()?)
     }
 }
