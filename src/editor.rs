@@ -6,7 +6,7 @@ use ratatui::widgets::{Block, BorderType, Borders};
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, BufRead, ErrorKind, Write};
 use std::str::FromStr;
-use tui_textarea::{Input, TextArea};
+use tui_textarea::Input;
 
 /// Runs the first time the editor is opened, populates editor with file contents.
 ///
@@ -26,7 +26,7 @@ pub fn initialize_editor<'a>(
 ) -> Result<(), Box<dyn std::error::Error>> {
     app.initialized();
 
-    let file = match create_entry_file(app) {
+    let file = match get_entry_file_handle(app) {
         Ok(file) => file,
         Err(e) => {
             slog::error!(
@@ -41,6 +41,7 @@ pub fn initialize_editor<'a>(
     app.editor = io::BufReader::new(file)
         .lines()
         .collect::<io::Result<_>>()?;
+    app.editor.move_cursor(tui_textarea::CursorMove::Bottom);
     let widget = app.editor.widget();
     frame.render_widget(widget, editor_area);
     Ok(())
@@ -100,7 +101,10 @@ pub fn draw_editor(app: &mut AppState, frame: &mut Frame) {
 
         let editor_block = match &*current_holiday.1 {
             select_string if select_string == "Selected Day " => Block::default()
-                .title(format!("☾ ﾟ｡⋆๑＿꒰⨳  ∟  ⨳๑ ꒱｡ﾟ☁︎｡。zｚℤＺ　"))
+                .title(format!(
+                    "『{}』☾ ﾟ｡⋆๑꒰⨳  ∟  ⨳๑ ꒱☁︎｡ﾟ｡。zｚℤＺ　",
+                    app.selected_date
+                ))
                 .border_style(Style::default().fg(Color::Rgb(255, 225, 120)))
                 .borders(Borders::all())
                 .border_type(BorderType::Double),
@@ -115,25 +119,6 @@ pub fn draw_editor(app: &mut AppState, frame: &mut Frame) {
     }
 }
 
-/// Saves the current state of the editor to a file.
-///
-/// # Params
-///
-/// * `app` - Mutable reference to the application state.
-///
-/// # Returns
-///
-/// void
-pub fn save_file(app: &mut AppState) {
-    let path = app
-        .entries_dir
-        .join(format!("{}_entry.md", app.selected_date));
-    match write_to_file(path, &app.editor) {
-        Ok(_) => (),
-        Err(e) => slog::error!(app.logger, "Failed to write file: {}", e),
-    }
-}
-
 /// Writes to a file the given text area's content.
 ///
 /// # Params
@@ -144,13 +129,13 @@ pub fn save_file(app: &mut AppState) {
 /// # Returns
 ///
 /// io::Result<()>
-fn write_to_file(path: impl AsRef<std::path::Path>, textarea: &TextArea) -> io::Result<()> {
-    let mut file = File::create(path)?;
-    for line in textarea.lines() {
-        file.write_all(line.as_bytes())?;
-        file.write_all(b"\n")?;
-        file.sync_all()?;
-    }
+pub fn write_to_file(app: &mut AppState) -> io::Result<()> {
+    let editor_content = app.editor.lines().concat();
+    app.editor_text = editor_content.clone();
+    let mut file = get_entry_file_handle(app)?;
+    file.write_all(editor_content.as_bytes())?;
+    file.write_all(b"\n")?;
+    file.sync_all()?;
     Ok(())
 }
 
@@ -163,7 +148,7 @@ fn write_to_file(path: impl AsRef<std::path::Path>, textarea: &TextArea) -> io::
 /// # Returns
 ///
 /// io::Result<File>
-fn create_entry_file(app: &mut AppState) -> io::Result<File> {
+fn get_entry_file_handle(app: &mut AppState) -> io::Result<File> {
     let path = app
         .entries_dir
         .join(format!("{}_entry.md", app.selected_date));

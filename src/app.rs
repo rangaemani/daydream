@@ -1,4 +1,4 @@
-use crate::{calendar::CalendarInfo, editor::save_file};
+use crate::{calendar::CalendarInfo, editor::write_to_file};
 
 use slog::Logger;
 use slog::{o, Drain};
@@ -19,6 +19,7 @@ pub struct AppState<'a> {
     pub initialized: bool,
     pub holiday_info: Option<CalendarInfo>,
     pub editor: TextArea<'a>,
+    pub editor_text: String,
     pub entries_dir: PathBuf,
     pub logger: Arc<Logger>,
 }
@@ -41,6 +42,7 @@ impl AppState<'_> {
             initialized: false,
             holiday_info: None,
             editor: TextArea::default(),
+            editor_text: String::from(""),
             entries_dir: PathBuf::from_str("entries").unwrap(),
             logger: Arc::new(Logger::root(slog::Discard, slog::o!())), // Placeholder logger
         };
@@ -55,6 +57,7 @@ impl AppState<'_> {
 
     pub fn initialize_logging(&mut self) {
         let log_path = "app.log";
+        self.editor_text = self.editor.lines().concat();
         // try to remove the existing log file
         match fs::remove_file(log_path) {
             Err(_) => {} // Ignore errors if the file does not exist
@@ -90,7 +93,10 @@ impl AppState<'_> {
 
     /// Saves the current state of the editor to a file and resets the application state.
     pub fn save(&mut self) {
-        save_file(self);
+        match write_to_file(self) {
+            Ok(_) => {}
+            Err(e) => println!("Error writing to file: {:?}", e),
+        }
         self.reset();
     }
 

@@ -33,7 +33,16 @@ impl EventProcessorExtension for KeyEvent {
             {
                 app.quit()
             }
-            KeyCode::Right => app.selected_date = app.selected_date.next_day().unwrap_or(Date::MIN),
+            KeyCode::Right => {
+                if self.modifiers.contains(KeyModifiers::CONTROL) {
+                    app.selected_date = app
+                        .selected_date
+                        .checked_add(Duration::WEEK * 4)
+                        .unwrap_or(Date::MIN)
+                } else {
+                    app.selected_date = app.selected_date.next_day().unwrap_or(Date::MIN)
+                }
+            }
             KeyCode::Up => {
                 app.selected_date = app
                     .selected_date
@@ -41,7 +50,14 @@ impl EventProcessorExtension for KeyEvent {
                     .unwrap_or(Date::MIN)
             }
             KeyCode::Left => {
-                app.selected_date = app.selected_date.previous_day().unwrap_or(Date::MIN)
+                if self.modifiers.contains(KeyModifiers::CONTROL) {
+                    app.selected_date = app
+                        .selected_date
+                        .checked_sub(Duration::WEEK * 4)
+                        .unwrap_or(Date::MIN)
+                } else {
+                    app.selected_date = app.selected_date.previous_day().unwrap_or(Date::MIN)
+                }
             }
             KeyCode::Down => {
                 app.selected_date = app
