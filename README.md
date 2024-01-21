@@ -4,5 +4,7 @@ Daydream is an in-terminal journaling program powered by ratatui🐀 designed to
 
 ## Features
 - calendar based daily logging system
-- note tagging for organization, searching, & sorting
 - simple, distraction-free workspace
+
+### [TODO]
+- note tagging for organization, searching, sorting
