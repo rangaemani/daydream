@@ -5,6 +5,7 @@ use slog::{o, Drain};
 use slog_async::Async;
 use slog_term::{FullFormat, PlainSyncDecorator};
 
+use std::fmt::Display;
 use std::fs::{self, OpenOptions};
 use std::sync::Arc;
 use std::{path::PathBuf, str::FromStr};
@@ -30,6 +31,16 @@ pub enum Mode {
     CALENDAR,
     EDITOR,
     SORT,
+}
+
+impl std::fmt::Display for Mode {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match *self {
+            Mode::CALENDAR => write!(f, "CALENDAR"),
+            Mode::EDITOR => write!(f, "EDITOR"),
+            Mode::SORT => write!(f, "SORT"),
+        }
+    }
 }
 
 impl AppState<'_> {

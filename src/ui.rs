@@ -68,7 +68,7 @@ pub fn render_journal_calendar(app: &mut AppState, frame: &mut Frame) {
 
     // Render the title
     frame.render_widget(
-        Paragraph::new("Press `Esc`, `Ctrl-C`, or `q` to halt program. ﾉ(._.`ﾉ)\nSelect a day using the arrow keys.\n(ヘ･_･)ヘ Use the `↵` key to select an entry to edit.")
+        Paragraph::new("Press `Esc`, `Ctrl-C`, or `q` to halt program. ﾉ(._.ﾉ)\nSelect a day using the arrow keys.\n(/ ･〰･)／ Use the `↵` key to select an entry to edit.")
             .block(Block::default().title("『daydream』").border_style(Style::new().light_green()).borders(Borders::all()).border_type(BorderType::QuadrantOutside))
             .alignment(Alignment::Center),
         title_area,

@@ -25,6 +25,7 @@ pub fn initialize_editor<'a>(
     editor_area: Rect,
 ) -> Result<(), Box<dyn std::error::Error>> {
     app.initialized();
+    slog::info!(app.logger, "App Initialized");
 
     let file = match get_entry_file_handle(app) {
         Ok(file) => file,
@@ -38,12 +39,43 @@ pub fn initialize_editor<'a>(
             // return Err(Box::new(e));
         }
     };
-    app.editor = io::BufReader::new(file)
-        .lines()
-        .collect::<io::Result<_>>()?;
+    // file.sync_all()?;
+    read_file_to_editor(app, file)?;
+    app.editor_text = app.editor.lines().concat();
+    slog::info!(app.logger, "Inserted file contents into editor"; "file" => %app.editor_text);
     app.editor.move_cursor(tui_textarea::CursorMove::Bottom);
     let widget = app.editor.widget();
     frame.render_widget(widget, editor_area);
+    Ok(())
+}
+
+/// Reads the contents of a file and sets the editor's content.
+///
+/// # Params
+///
+/// * `app` - Mutable reference to the application state.
+/// * `file` - The file handle from which to read.
+///
+/// # Returns
+///
+/// Result<(), Box<dyn std::error::Error>>
+fn read_file_to_editor(app: &mut AppState, file: File) -> Result<(), Box<dyn std::error::Error>> {
+    let reader = io::BufReader::new(file);
+    let lines = match reader.lines().collect::<io::Result<Vec<String>>>() {
+        Ok(lines) => {
+            slog::info!(app.logger, "File lines read into editor");
+            lines
+        }
+        Err(e) => {
+            slog::error!(app.logger, "Failed to read lines from file: {}", e);
+            return Err(Box::new(e));
+        }
+    };
+
+    // Create a new TextArea with the lines read from the file
+    let textarea = tui_textarea::TextArea::new(lines);
+    app.editor = textarea;
+
     Ok(())
 }
 
@@ -134,7 +166,6 @@ pub fn write_to_file(app: &mut AppState) -> io::Result<()> {
     app.editor_text = editor_content.clone();
     let mut file = get_entry_file_handle(app)?;
     file.write_all(editor_content.as_bytes())?;
-    file.write_all(b"\n")?;
     file.sync_all()?;
     Ok(())
 }
@@ -173,9 +204,9 @@ fn get_entry_file_handle(app: &mut AppState) -> io::Result<File> {
                 Ok(_) => {
                     slog::info!(app.logger, "Inserted daily entry heading"; "date" => %app.selected_date);
                     file.write_all(b"\n")?;
-                    file.sync_all()?;
+                    file.sync_data()?;
                     file.flush()?;
-                    slog::info!(app.logger, "File sync completed"; "path" => ?path);
+                    slog::info!(app.logger, "File flushed"; "path" => ?path);
                     // // Additional check to confirm file contents
                     // let mut contents = String::new();
                     // file.read_to_string(&mut contents)?;

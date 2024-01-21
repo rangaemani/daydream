@@ -44,10 +44,17 @@ impl EventProcessorExtension for KeyEvent {
                 }
             }
             KeyCode::Up => {
-                app.selected_date = app
-                    .selected_date
-                    .checked_sub(Duration::WEEK)
-                    .unwrap_or(Date::MIN)
+                if self.modifiers.contains(KeyModifiers::CONTROL) {
+                    app.selected_date = app
+                        .selected_date
+                        .checked_sub(Duration::WEEK * 17)
+                        .unwrap_or(Date::MIN)
+                } else {
+                    app.selected_date = app
+                        .selected_date
+                        .checked_sub(Duration::WEEK)
+                        .unwrap_or(Date::MIN)
+                }
             }
             KeyCode::Left => {
                 if self.modifiers.contains(KeyModifiers::CONTROL) {
@@ -60,12 +67,22 @@ impl EventProcessorExtension for KeyEvent {
                 }
             }
             KeyCode::Down => {
-                app.selected_date = app
-                    .selected_date
-                    .checked_add(Duration::WEEK)
-                    .unwrap_or(Date::MIN)
+                if self.modifiers.contains(KeyModifiers::CONTROL) {
+                    app.selected_date = app
+                        .selected_date
+                        .checked_add(Duration::WEEK * 17)
+                        .unwrap_or(Date::MIN)
+                } else {
+                    app.selected_date = app
+                        .selected_date
+                        .checked_add(Duration::WEEK)
+                        .unwrap_or(Date::MIN)
+                }
             }
-            KeyCode::Enter => app.mode = Mode::EDITOR,
+            KeyCode::Enter => {
+                app.mode = Mode::EDITOR;
+                slog::info!(app.logger, "Mode Changed"; "mode" => %app.mode);
+            }
             _ => {}
         }
     }
@@ -75,6 +92,7 @@ impl EventProcessorExtension for KeyEvent {
                 KeyCode::Char('s') | KeyCode::Char('S') => {
                     app.save();
                     app.mode = Mode::CALENDAR;
+                    slog::info!(app.logger, "Mode Changed"; "mode" => %app.mode);
                 }
                 KeyCode::Char('c') | KeyCode::Char('C') => app.quit(),
                 _ => {}
@@ -83,6 +101,7 @@ impl EventProcessorExtension for KeyEvent {
             if self.code == KeyCode::Esc {
                 app.save();
                 app.mode = Mode::CALENDAR;
+                slog::info!(app.logger, "Mode Changed"; "mode" => %app.mode);
             }
             let editor_input = self.convert_to_editor_input();
             if let Some(input) = editor_input {
@@ -121,191 +140,6 @@ impl EventProcessorExtension for KeyEvent {
         })
     }
 }
-// respond to input events differently based on which mode is currently engaged
-// impl UpdateEvent for KeyEvent {
-//     fn update(&self, app: &mut AppState) {
-//         match app.mode {
-//             Mode::CALENDAR => {
-//                 match self.code {
-//                     // q for quit
-//                     KeyCode::Esc | KeyCode::Char('q') => app.quit(),
-//                     // ctrl c force quit
-//                     KeyCode::Char('c') | KeyCode::Char('C') => {
-//                         if self.modifiers == KeyModifiers::CONTROL {
-//                             app.quit()
-//                         }
-//                     }
-//                     // next day
-//                     KeyCode::Right | KeyCode::Up => {
-//                         app.selected_date = app.selected_date.next_day().unwrap_or(Date::MIN);
-//                     }
-//                     // previous day
-//                     KeyCode::Left | KeyCode::Down => {
-//                         app.selected_date = app.selected_date.previous_day().unwrap_or(Date::MIN);
-//                     }
-//                     // select date and enter editor mode
-//                     KeyCode::Enter => {
-//                         app.mode = Mode::EDITOR;
-//                         // initialize_editor(app);
-//                     }
-//                     _ => {}
-//                 };
-//             }
-//             Mode::EDITOR => match self.modifiers {
-//                 KeyModifiers::CONTROL => match self.code {
-//                     // save command
-//                     KeyCode::Char('S') | KeyCode::Char('s') => {
-//                         app.save();
-//                         app.mode = Mode::CALENDAR;
-//                     }
-//                     // force quit command
-//                     KeyCode::Char('C') | KeyCode::Char('c') => app.quit(),
-//                     _ => (),
-//                 },
-//                 _ => {
-//                     match self.code {
-//                         // editor navigation inputs
-//                         // KeyCode::Left
-//                         KeyCode::Left => {
-//                             let editor_input = Input {
-//                                 key: Key::Left,
-//                                 ctrl: false,
-//                                 alt: false,
-//                                 shift: false,
-//                             };
-//                             update_editor(app, editor_input);
-//                         }
-//                         // KeyCode::Right
-//                         KeyCode::Right => {
-//                             let editor_input = Input {
-//                                 key: Key::Right,
-//                                 ctrl: false,
-//                                 alt: false,
-//                                 shift: false,
-//                             };
-//                             update_editor(app, editor_input);
-//                         }
-//                         // KeyCode::Up
-//                         KeyCode::Up => {
-//                             let editor_input = Input {
-//                                 key: Key::Up,
-//                                 ctrl: false,
-//                                 alt: false,
-//                                 shift: false,
-//                             };
-//                             update_editor(app, editor_input);
-//                         }
-//                         // KeyCode::Down
-//                         KeyCode::Down => {
-//                             let editor_input = Input {
-//                                 key: Key::Down,
-//                                 ctrl: false,
-//                                 alt: false,
-//                                 shift: false,
-//                             };
-//                             update_editor(app, editor_input);
-//                         }
-//                         // KeyCode::Char(c)
-//                         KeyCode::Char(c) => {
-//                             let editor_input = Input {
-//                                 key: Key::Char(c),
-//                                 ctrl: false,
-//                                 alt: false,
-//                                 shift: false,
-//                             };
-//                             update_editor(app, editor_input);
-//                         }
-//                         // KeyCode::Delete
-//                         KeyCode::Delete => {
-//                             let editor_input = Input {
-//                                 key: Key::Delete,
-//                                 ctrl: false,
-//                                 alt: false,
-//                                 shift: false,
-//                             };
-//                             update_editor(app, editor_input);
-//                         }
-//                         // KeyCode::Backspace
-//                         KeyCode::Backspace => {
-//                             let editor_input = Input {
-//                                 key: Key::Backspace,
-//                                 ctrl: false,
-//                                 alt: false,
-//                                 shift: false,
-//                             };
-//                             update_editor(app, editor_input);
-//                         }
-//                         // KeyCode::Home
-//                         KeyCode::Home => {
-//                             let editor_input = Input {
-//                                 key: Key::Home,
-//                                 ctrl: false,
-//                                 alt: false,
-//                                 shift: false,
-//                             };
-//                             update_editor(app, editor_input);
-//                         }
-//                         // KeyCode::End
-//                         KeyCode::End => {
-//                             let editor_input = Input {
-//                                 key: Key::End,
-//                                 ctrl: false,
-//                                 alt: false,
-//                                 shift: false,
-//                             };
-//                             update_editor(app, editor_input);
-//                         }
-//                         // KeyCode::Enter
-//                         KeyCode::Enter => {
-//                             let editor_input = Input {
-//                                 key: Key::Enter,
-//                                 ctrl: false,
-//                                 alt: false,
-//                                 shift: false,
-//                             };
-//                             update_editor(app, editor_input);
-//                         }
-//                         KeyCode::Esc => {
-//                             app.save();
-//                             app.mode = Mode::CALENDAR;
-//                         }
-//                         _ => {
-//                             let editor_input = Input {
-//                                 key: match self.code {
-//                                     KeyCode::Backspace => Key::Backspace,
-//                                     KeyCode::Char(c) => Key::Char(c),
-//                                     KeyCode::Delete => Key::Delete,
-//                                     KeyCode::Down => Key::Down,
-//                                     KeyCode::End => Key::End,
-//                                     KeyCode::Enter => Key::Enter,
-//                                     KeyCode::Esc => Key::Esc,
-//                                     KeyCode::F(f) => Key::F(f),
-//                                     KeyCode::Home => Key::Home,
-//                                     KeyCode::Left => Key::Left,
-//                                     KeyCode::PageDown => Key::PageDown,
-//                                     KeyCode::PageUp => Key::PageUp,
-//                                     KeyCode::Right => Key::Right,
-//                                     KeyCode::Tab => Key::Tab,
-//                                     KeyCode::Up => Key::Up,
-//                                     KeyCode::Null => Key::Null,
-//                                     _ => return, // Ignore other keys
-//                                 },
-//                                 ctrl: self.modifiers.contains(KeyModifiers::CONTROL),
-//                                 alt: self.modifiers.contains(KeyModifiers::ALT),
-//                                 shift: self.modifiers.contains(KeyModifiers::SHIFT),
-//                             };
-//                             update_editor(app, editor_input);
-//                         }
-//                     }
-//                 }
-//             },
-//             Mode::SORT => {
-//                 todo!()
-//             }
-//         }
-//     }
-// }
-
 impl UpdateEvent for MouseEvent {
     fn update(&self, _app: &mut AppState) {
         match self.kind {

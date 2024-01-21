@@ -56,22 +56,44 @@ pub fn draw_calendar(app: &mut AppState, frame: &mut Frame) {
     {
         let cal = cals::get_cal(start.month(), start.year(), &holiday_info.events);
 
-        let center_x = chunk.x;
-        let center_y = chunk.y;
-        let centered_chunk = Rect {
-            x: center_x,
-            y: center_y,
-            width: chunk.width,
-            height: chunk.height,
+        // Define minimum and maximum padding values
+        let min_horizontal_padding: u16 = 2;
+        let max_horizontal_padding: u16 = 10;
+        let min_vertical_padding: u16 = 0;
+        let max_vertical_padding: u16 = 5;
+
+        // Calculate percentage-based padding
+        let horizontal_padding_percentage = 35;
+        let vertical_padding_percentage = 13;
+
+        // Calculate dynamic padding based on the frame size
+        let mut horizontal_padding = (frame.size().width * horizontal_padding_percentage / 100) / 2; // Divide by 2 for padding on both sides
+        let mut vertical_padding = (frame.size().height * vertical_padding_percentage / 100) / 2; // Divide by 2 for padding on both sides
+
+        // Apply minimum and maximum constraints
+        horizontal_padding = horizontal_padding
+            .max(min_horizontal_padding)
+            .min(max_horizontal_padding);
+        vertical_padding = vertical_padding
+            .max(min_vertical_padding)
+            .min(max_vertical_padding);
+
+        // Calculate the padded chunk
+        let padded_chunk = Rect {
+            x: chunk.x + horizontal_padding,
+            y: chunk.y + vertical_padding,
+            width: chunk.width.saturating_sub(horizontal_padding * 2),
+            height: chunk.height.saturating_sub(vertical_padding * 2),
         };
 
         frame.render_widget(
             cal.block(
                 Block::default()
                     .borders(Borders::all())
-                    .border_type(BorderType::Rounded),
+                    .border_type(BorderType::Rounded)
+                    .title_alignment(Alignment::Center),
             ),
-            centered_chunk,
+            padded_chunk,
         );
         if start.month().next() == Month::January {
             start = start
